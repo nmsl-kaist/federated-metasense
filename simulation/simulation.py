@@ -59,7 +59,7 @@ def generate_model():
     model.add(tf.keras.layers.Dense(units=NUM_CLASSES))
     model.compile(
         optimizer=tf.keras.optimizers.SGD(learning_rate=0.005),
-        loss="sparse_categorical_crossentropy",
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         metrics=["accuracy"])
     return model
 
@@ -80,14 +80,14 @@ class CifarRayClient(fl.client.NumPyClient):
         # Remove steps_per_epoch if you want to train over the full dataset
         # https://keras.io/api/models/model_training_apis/#fit-method
         train_data = femnist_dataset.get_train_data(self.cid)
-        self.model.fit(x=train_data['x'], y=train_data['y'], batch_size=int(config["batch_size"]), epochs=int(config["epochs"]))
+        self.model.fit(x=train_data['x'], y=train_data['y'], batch_size=int(config["batch_size"]), epochs=int(config["epochs"]), verbose=2)
         return self.model.get_weights(), len(train_data['x']), {}
 
     def evaluate(self, parameters, config):
         """Evaluate using provided parameters."""
         self.model.set_weights(parameters)
         test_data = femnist_dataset.get_test_data(self.cid)
-        loss, accuracy = self.model.evaluate(x=test_data['x'], y=test_data['y'])
+        loss, accuracy = self.model.evaluate(x=test_data['x'], y=test_data['y'], verbose=2)
         return loss, len(test_data['x']), {"accuracy": accuracy}
 
 
