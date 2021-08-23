@@ -3,7 +3,7 @@ import time
 import sys
 from pathlib import Path
 from multiprocessing import Process
-from typing import Tuple
+from typing import Tuple, Dict
 
 import flwr as fl
 import numpy as np
@@ -48,7 +48,7 @@ class Dataset():
 
 # CNN model generator using sequential
 def generate_model():
-    model = tf.keras.models.Sequential()
+    model = tf.keras.Sequential()
     model.add(tf.keras.layers.Reshape((IMAGE_SIZE, IMAGE_SIZE, 1), input_shape=(IMAGE_SIZE * IMAGE_SIZE,)))
     model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=(5, 5), padding='same', activation='relu'))
     model.add(tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=2))
@@ -57,18 +57,17 @@ def generate_model():
     model.add(tf.keras.layers.Flatten())
     model.add(tf.keras.layers.Dense(units=2048, activation='relu'))
     model.add(tf.keras.layers.Dense(units=NUM_CLASSES))
+    model.compile(
+        optimizer=tf.keras.optimizers.SGD(learning_rate=0.005),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"])
     return model
 
 # Define a Flower client
 class CifarRayClient(fl.client.NumPyClient):
     def __init__(self, cid: str):
         self.cid = cid
-        # Load and compile a Keras model
         self.model = generate_model()
-        self.model.compile(
-            optimizer=tf.keras.optimizers.SGD(learning_rate=0.005),
-            loss="sparse_categorical_crossentropy",
-            metrics=["accuracy"])
 
     def get_parameters(self):
         """Return current weights."""
@@ -81,16 +80,32 @@ class CifarRayClient(fl.client.NumPyClient):
         # Remove steps_per_epoch if you want to train over the full dataset
         # https://keras.io/api/models/model_training_apis/#fit-method
         train_data = femnist_dataset.get_train_data(self.cid)
-        self.model.fit(train_data['x'], train_data['y'], epochs=1, batch_size=10)
+        self.model.fit(x=train_data['x'], y=train_data['y'], batch_size=int(config["batch_size"]), epochs=int(config["epochs"]))
         return self.model.get_weights(), len(train_data['x']), {}
 
     def evaluate(self, parameters, config):
         """Evaluate using provided parameters."""
         self.model.set_weights(parameters)
         test_data = femnist_dataset.get_test_data(self.cid)
-        loss, accuracy = self.model.evaluate(test_data['x'], test_data['y'])
+        loss, accuracy = self.model.evaluate(x=test_data['x'], y=test_data['y'])
         return loss, len(test_data['x']), {"accuracy": accuracy}
 
+
+def fit_config(rnd: int) -> Dict[str, str]:
+    """Return an fit configuration."""
+    config = {
+        "rnd": str(rnd),
+        "epochs": str(1),
+        "batch_size": str(10),
+    }
+    return config
+
+def eval_config(rnd: int) -> Dict[str, str]:
+    """Return an evaluation configuration."""
+    config = {
+        "rnd": str(rnd),
+    }
+    return config
 
 # Start Ray simulation (a _default server_ will be created)
 # This example does:
@@ -105,8 +120,8 @@ class CifarRayClient(fl.client.NumPyClient):
 if __name__ == "__main__":
 
     num_clients = 100  # number of total clients
-    fraction_fit = 0.8 # {fraction_fit * num_clients} clients are used for training. Only number matters since dataset are split.
-    fraction_eval = 0.4 # {fraction_eval * num_clients} clients are used for testing. Only number matters since dataset are split.
+    fraction_fit = 0.1 # {fraction_fit * num_clients} clients are used for training. Only number matters since dataset are split.
+    fraction_eval = 0.1 # {fraction_eval * num_clients} clients are used for testing. Only number matters since dataset are split.
     client_resources = {"num_gpus": 1/4} # 1/n means n clients are assigned to 1 physical gpu. Too large n may cause gpu oom error.
 
     # load the dataset
@@ -127,6 +142,8 @@ if __name__ == "__main__":
         fraction_fit=fraction_fit,
         fraction_eval=fraction_eval,
         min_available_clients=num_clients,  # All clients should be available
+        on_fit_config_fn=fit_config,
+        on_evaluate_config_fn=eval_config,
     )
 
     def client_fn(cid: str):
