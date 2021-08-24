@@ -1,30 +1,8 @@
-import json
-import numpy as np
 import os
+import json
 from collections import defaultdict
 
-
-def batch_data(data, batch_size, seed):
-    '''
-    data is a dict := {'x': [numpy array], 'y': [numpy array]} (on one client)
-    returns x, y, which are both numpy array of length: batch_size
-    '''
-    data_x = data['x']
-    data_y = data['y']
-
-    # randomly shuffle data
-    np.random.seed(seed)
-    rng_state = np.random.get_state()
-    np.random.shuffle(data_x)
-    np.random.set_state(rng_state)
-    np.random.shuffle(data_y)
-
-    # loop through mini-batches
-    for i in range(0, len(data_x), batch_size):
-        batched_x = data_x[i:i+batch_size]
-        batched_y = data_y[i:i+batch_size]
-        yield (batched_x, batched_y)
-
+import numpy as np
 
 def read_dir(data_dir):
     clients = []
@@ -64,3 +42,25 @@ def read_data(train_data_dir, test_data_dir):
     test_clients, test_groups, test_data = read_dir(test_data_dir)
 
     return train_clients, test_clients, train_data, test_data
+
+class Dataset():
+    def __init__(self, dataset_name):
+        train_path = os.path.join('.', 'data', dataset_name, 'data', 'train')
+        test_path = os.path.join('.', 'data', dataset_name, 'data', 'test')
+        train_client_ids, test_client_ids, train_data_dict, test_data_dict = read_data(train_path, test_path)
+        train_data = map(lambda id: train_data_dict.get(id), train_client_ids)
+        test_data = map(lambda id: test_data_dict.get(id), test_client_ids)
+        self.train_data = list(map(lambda data: {k:np.array(v) for k, v in data.items()}, train_data))
+        self.test_data = list(map(lambda data: {k:np.array(v) for k, v in data.items()}, test_data))
+
+    def get_train_data(self, cid: str):
+        return self.train_data[int(cid)]
+
+    def get_test_data(self, cid: str):
+        return self.test_data[int(cid)]
+
+    def get_num_train_clients(self):
+        return len(self.train_data)
+
+    def get_num_test_clients(self):
+        return len(self.test_data)
