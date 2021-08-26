@@ -1,10 +1,11 @@
 import tensorflow as tf
 
-# image size
+# FEMNIST image size
 IMAGE_SIZE = 28
+# FEMNIST number of classes
 NUM_CLASSES = 62
 
-# CNN model generator using sequential
+# CNN model generator for FEMNIST using sequential
 def generate_model():
     model = tf.keras.Sequential()
     model.add(tf.keras.layers.Reshape((IMAGE_SIZE, IMAGE_SIZE, 1), input_shape=(IMAGE_SIZE * IMAGE_SIZE,)))

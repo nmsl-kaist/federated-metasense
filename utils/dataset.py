@@ -1,3 +1,14 @@
+'''
+Some code snippets are borrowed from LEAF.
+
+LEAF: A Benchmark for Federated Settings
+Sebastian Caldas, Sai Meher Karthik Duddu, Peter Wu, Tian Li,
+Jakub Konečný, H. Brendan McMahan, Virginia Smith, and Ameet Talwalkar.
+Workshop on Federated Learning for Data Privacy and Confidentiality (2019).
+
+https://leaf.cmu.edu/
+'''
+
 import os
 import json
 from collections import defaultdict

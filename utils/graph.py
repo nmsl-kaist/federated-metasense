@@ -1,10 +1,24 @@
+'''
+Some code snippets are borrowed from LEAF.
+
+LEAF: A Benchmark for Federated Settings
+Sebastian Caldas, Sai Meher Karthik Duddu, Peter Wu, Tian Li,
+Jakub Konečný, H. Brendan McMahan, Virginia Smith, and Ameet Talwalkar.
+Workshop on Federated Learning for Data Privacy and Confidentiality (2019).
+
+https://leaf.cmu.edu/
+'''
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-NUM_ROUND_KEY = 'round_number'
-ACCURACY_KEY = 'accuracy'
-NUM_SAMPLES_KEY = 'num_samples'
+from log_keys import (
+    NUM_ROUND_KEY,
+    ACCURACY_KEY,
+    LOSS_KEY,
+    NUM_SAMPLES_KEY,
+)
 
 def load_data_from_file(log_path=None):
     if log_path is None:
