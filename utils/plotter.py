@@ -27,7 +27,7 @@ class Plotter():
 
         self.data = pd.read_csv(log_path)
 
-    def plot_accuracy_by_round_number(self, weighted=False, plot_every_n_rounds=20, plot_stds=False, figsize=(10, 8), title_fontsize=16, **kwargs):
+    def plot_accuracy_by_round_number(self, weighted=False, plot_every_n_rounds=10, plot_stds=False, figsize=(10, 8), title_fontsize=16, **kwargs):
         # Initialize plot with figure_size.
         plt.figure(figsize=figsize)
 
@@ -81,7 +81,7 @@ class Plotter():
         # Show the graph.
         plt.show()
 
-    def plot_loss_by_round_number(self, weighted=False, plot_every_n_rounds=20, plot_stds=False, figsize=(10, 8), title_fontsize=16, **kwargs):
+    def plot_loss_by_round_number(self, weighted=False, plot_every_n_rounds=10, plot_stds=False, figsize=(10, 8), title_fontsize=16, **kwargs):
         # Initialize plot with figure_size.
         plt.figure(figsize=figsize)
 
