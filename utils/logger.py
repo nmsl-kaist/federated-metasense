@@ -48,12 +48,13 @@ class Logger():
         log_data_list = list(map(lambda key: log_data_dict[key], self.log_keys_list))
         return self._join_strings_by_comma(log_data_list)
 
-    def log_train_data(self, round_number, cid, num_samples, history):
+    def log_train_data(self, round_number, cid, num_samples, history=None, loss=None, accuracy=None):
         if self.log_folder is None:
             return
         with open(os.path.join(self.log_folder, self.train_file_name), 'a') as train_file:
-            loss = history.history['loss'][-1] # Last epoch
-            accuracy = history.history['accuracy'][-1] # Last epoch
+            if history is not None:
+                loss = history.history['loss'][-1] # Last epoch
+                accuracy = history.history['accuracy'][-1] # Last epoch
             log_data_dict = {
                 NUM_ROUND_KEY: str(round_number),
                 CLIENT_ID_KEY: str(cid),
