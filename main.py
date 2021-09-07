@@ -69,9 +69,9 @@ if __name__ == "__main__":
         """
         # Create and return client
         if config["args_extra_label"] == 'meta':
-            return RayMetaClient(cid, logger)
+            return RayMetaClient(cid, femnist_dataset, logger)
         else:
-            return RayDefaultClient(cid, logger)
+            return RayDefaultClient(cid, femnist_dataset, logger)
 
     # Initialize the strategy
     strategy = fl.server.strategy.FedAvg(

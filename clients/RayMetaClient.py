@@ -6,10 +6,11 @@ from utils.generate_model import generate_model
 
 # Define a Flower client - fedmeta
 class RayMetaClient(fl.client.NumPyClient):
-    def __init__(self, cid: str, logger):
+    def __init__(self, cid: str, dataset, logger):
         self.cid = cid
-        self.model = generate_model()
+        self.dataset = dataset
         self.logger = logger
+        self.model = generate_model()
 
     def get_parameters(self):
         """Return current weights."""
@@ -31,7 +32,7 @@ class RayMetaClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         """Fit model and return new weights."""
-        train_data = femnist_dataset.get_train_data(self.cid)
+        train_data = self.dataset.get_train_data(self.cid)
         # Pick k1, k2 random samples respectively for meta-learn and meta-update steps.
         train_data_meta_learn, train_data_meta_update = self._pick_two_chunks_of_random_k_samples(train_data, k1=10, k2=20)
         train_data_meta_update = train_data
@@ -75,7 +76,7 @@ class RayMetaClient(fl.client.NumPyClient):
     def evaluate(self, parameters, config):
         """Evaluate using provided parameters."""
         """This function is not called if centralized evaluation function is defined."""
-        test_data = femnist_dataset.get_test_data(self.cid)
+        test_data = self.dataset.get_test_data(self.cid)
         # Pick k random samples for adaptation.
         data_adaptation, _ = self._pick_two_chunks_of_random_k_samples(test_data, k1=10, k2=0)
         # Recompile the model with adaptation rate and load the parameters.
