@@ -23,7 +23,7 @@ from utils.log_keys import (
 class Plotter():
     def __init__(self, log_path=None):
         if log_path is None:
-            raise Exception('Cannot file log file from given path.')
+            raise Exception('Cannot find log file from given path.')
 
         self.data = pd.read_csv(log_path)
 
@@ -80,6 +80,9 @@ class Plotter():
 
         # Show the graph.
         plt.show()
+
+        print(accuracies)
+        print(stds)
 
     def plot_loss_by_round_number(self, weighted=False, plot_every_n_rounds=10, plot_stds=False, figsize=(10, 8), title_fontsize=16, **kwargs):
         # Initialize plot with figure_size.
