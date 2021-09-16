@@ -32,10 +32,10 @@ class RayMetaClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         """Fit model and return new weights."""
+        print('fit - meta')
         train_data = self.dataset.get_train_data(self.cid)
         # Pick k1, k2 random samples respectively for meta-learn and meta-update steps.
-        train_data_meta_learn, train_data_meta_update = self._pick_two_chunks_of_random_k_samples(train_data, k1=10, k2=20)
-        train_data_meta_update = train_data
+        train_data_meta_learn, train_data_meta_update = self._pick_two_chunks_of_random_k_samples(train_data, k1=10, k2=train_data['x'].shape[0]-20)
         # Recompile the model with meta-learn learning rate (alpha).
         self.model.compile(
             optimizer=tf.keras.optimizers.SGD(learning_rate=float(config["alpha"])),

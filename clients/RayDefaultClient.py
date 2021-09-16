@@ -16,6 +16,7 @@ class RayDefaultClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         """Fit model and return new weights as well as number of training samples."""
+        print('fit - default')
         train_data = self.dataset.get_train_data(self.cid)
         self.model.set_weights(parameters)
         history = self.model.fit(

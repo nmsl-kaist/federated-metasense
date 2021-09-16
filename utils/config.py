@@ -18,10 +18,10 @@ def get_configuration():
     args = parser.parse_args()
 
     config = {
-        "name": f"test_whole_{args.alpha}_{args.meta_learn_epochs}epochs_{args.extra_label}", # This field should exist.
-        "num_clients": 100, # number of total clients
-        "fraction_fit": 0.1, # {fraction_fit * num_clients} clients are used for training. Only number matters since dataset are split.
-        "fraction_eval": 0.1, # {fraction_eval * num_clients} clients are used for testing. Only number matters since dataset are split.
+        "name": f"tester3_whole_{args.extra_label}", # This field should exist.
+        "num_clients": 300, # number of total clients
+        "fraction_fit": 0.05, # {fraction_fit * num_clients} clients are used for training. Only number matters since dataset are split.
+        "fraction_eval": 1.0, # {fraction_eval * num_clients} clients are used for testing. Only number matters since dataset are split.
         "client_resources": {"num_gpus": 1/4}, # 1/n means n clients are assigned to 1 physical gpu. Too large n may cause gpu oom error.
         "dataset_name": "femnist",
         "num_rounds": 1000,

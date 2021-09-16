@@ -27,6 +27,34 @@ class Plotter():
 
         self.data = pd.read_csv(log_path)
 
+    def final_accuracy(self, num_total_clients):
+        validation_set = self.data.loc[self.data['cid'] < num_total_clients // 2]
+        test_set = self.data.loc[self.data['cid'] >= num_total_clients // 2]
+
+        validation_grouped = validation_set.groupby(NUM_ROUND_KEY, as_index=False).mean()
+        test_grouped = test_set.groupby(NUM_ROUND_KEY, as_index=False).mean()
+
+        return test_grouped[validation_grouped['loss'] == validation_grouped['loss'].min()]
+
+    def plot_accuracy_distribution_from_round(self, round_number, figsize=(10, 8), color='gray', sort=False, **kwargs):
+        plt.figure(figsize=figsize)
+        plt.title(f'Accuracy from round {round_number}')
+
+        data = self.data.loc[self.data[NUM_ROUND_KEY] == round_number]
+        if sort:
+            data = data.sort_values(by=ACCURACY_KEY)
+            data = data.reset_index(drop=True)
+        print(data)
+
+        plt.bar(data.index if sort else data['cid'], data[ACCURACY_KEY], color=color)
+
+        plt.ylabel('Accuracy')
+        plt.xlabel('cid')
+
+        self._set_plot_properties(kwargs)
+
+        plt.show()
+
     def plot_accuracy_by_round_number(self, weighted=False, plot_every_n_rounds=10, plot_stds=False, figsize=(10, 8), title_fontsize=16, **kwargs):
         # Initialize plot with figure_size.
         plt.figure(figsize=figsize)
