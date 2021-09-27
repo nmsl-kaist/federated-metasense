@@ -4,15 +4,15 @@ from typing import Dict
 import flwr as fl
 import numpy as np
 import tensorflow as tf
-from flwr.server.strategy import FedAvg
+from strategy.fedavg import FedAvg
 
 from utils.dataset import Dataset
 from utils.logger import Logger
 from utils.config import get_configuration
 from utils.generate_model import generate_model
 
-from clients.RayDefaultClient import RayDefaultClient
-from clients.RayMetaClient import RayMetaClient
+from client.RayDefaultClient import RayDefaultClient
+from client.RayMetaClient import RayMetaClient
 
 # Make TensorFlow log less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -74,7 +74,7 @@ if __name__ == "__main__":
             return RayDefaultClient(cid, femnist_dataset, logger)
 
     # Initialize the strategy
-    strategy = fl.server.strategy.FedAvg(
+    strategy = FedAvg(
         fraction_fit=config['fraction_fit'],
         fraction_eval=config['fraction_eval'],
         min_available_clients=config['num_clients'],  # All clients should be available
