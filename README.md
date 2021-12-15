@@ -1,5 +1,5 @@
-# FedMeta
+# Federated MetaSense
 
-FedMeta project based on Flower framework.
+Federated MetaSense project based on Flower framework.
 
 Flower: https://github.com/adap/flower
