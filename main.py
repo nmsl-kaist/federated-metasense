@@ -4,15 +4,20 @@ from typing import Dict
 import flwr as fl
 import numpy as np
 import tensorflow as tf
-from flwr.server.strategy import FedAvg
 
-from utils.dataset import Dataset
+from strategy.fedavg import FedAvg
+#from strategy.fedmetasequential import FedMetaSequential
+#from strategy.fedmetaaverage import FedMetaAverage
+from strategy.fedmetaaverage2 import FedMetaAverage2
+#from strategy.fedmetawhole import FedMetaWhole
+
 from utils.logger import Logger
 from utils.config import get_configuration
-from utils.generate_model import generate_model
 
-from clients.RayDefaultClient import RayDefaultClient
-from clients.RayMetaClient import RayMetaClient
+from client.DefaultClient import DefaultClient
+from client.MetaClient import MetaClient
+from client.SpecialClientWithSeparation import SpecialClientWithSeparation
+#from client.SpecialClientNoSeparation import SpecialClientNoSeparation
 
 # Make TensorFlow log less verbose
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -20,31 +25,17 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 # Use minimal memory
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
-# Start Ray simulation (a _default server_ will be created)
-# This code does:
-# 1. Load FEMNIST dataset (The dataset should be downloaded and sampled in advance.)
-# 2. Starts a Ray-based simulation where a % of clients are sampled each round.
-# 3. Every round, the global model is evaluated on each test client's data. 
-#    This is useful to get a sense on how well the global model can generalise
-#    to each client's data.
+# Start Ray simulation
 if __name__ == "__main__":
 
     # Get configuration
     config = get_configuration()
 
-    # Load the dataset
-    femnist_dataset = Dataset(config['dataset_name'])
-
     # Initialize logger
     logger = Logger(config)
 
-    # The number of requested clients must be smaller than dataset's number of client
-    # If this assertion fails, try resample dataset with larger sampling ratio, or request smaller number of users.
-    print(f"Number of dataset's training clients: {femnist_dataset.get_num_train_clients()}")
-    print(f"Number of dataset's testing clients: {femnist_dataset.get_num_test_clients()}")
+    # Print num_clients
     print(f"Number of requested clients: {config['num_clients']}")
-    assert config['num_clients'] < femnist_dataset.get_num_train_clients(), "Try resample dataset with larger sampling ratio, or request smaller number of users"
-    assert config['num_clients'] < femnist_dataset.get_num_test_clients(), "Try resample dataset with larger sampling ratio, or request smaller number of users"
 
     # Initialize fit/eval config functions
     def fit_config(rnd: int) -> Dict[str, str]:
@@ -67,20 +58,38 @@ if __name__ == "__main__":
         """
         Create a single client instance.
         """
-        # Create and return client
-        if config["args_extra_label"] == 'meta':
-            return RayMetaClient(cid, femnist_dataset, logger)
+        if config["args_suffix"] == 'average2':
+            return SpecialClientWithSeparation(cid, logger, config["dataset_name"])
+        elif config["args_suffix"] == 'meta':
+            return MetaClient(cid, logger, config["dataset_name"])
         else:
-            return RayDefaultClient(cid, femnist_dataset, logger)
+            return DefaultClient(cid, logger, config["dataset_name"])
 
     # Initialize the strategy
-    strategy = fl.server.strategy.FedAvg(
-        fraction_fit=config['fraction_fit'],
-        fraction_eval=config['fraction_eval'],
-        min_available_clients=config['num_clients'],  # All clients should be available
-        on_fit_config_fn=fit_config,
-        on_evaluate_config_fn=eval_config,
-    )
+    if config["args_suffix"] == 'average2':
+        strategy = FedMetaAverage2(
+            fit_clients=config["fit_clients"],
+            eval_clients=config["eval_clients"],
+            on_fit_config_fn=fit_config,
+            on_evaluate_config_fn=eval_config,
+            evaluate_every=config['strategy_config']['num_per_cond_per_cycle'] + config['strategy_config']['num_partitions_for_multi_cond_task'] * 2,
+            available_fit_client_id=config["strategy_config"]["available_fit_client_id"],
+            available_eval_client_id=config["strategy_config"]["available_eval_client_id"],
+            num_per_cond_per_cycle=config['strategy_config']['num_per_cond_per_cycle'],
+            num_partitions_for_multi_cond_task=config['strategy_config']['num_partitions_for_multi_cond_task'],
+            multi_cond_multiplier=config['strategy_config']['multi_cond_multiplier'],
+            num_classes=config['num_classes'],
+        )
+    else:
+        strategy = FedAvg(
+            fit_clients=config["fit_clients"],
+            eval_clients=config["eval_clients"],
+            on_fit_config_fn=fit_config,
+            on_evaluate_config_fn=eval_config,
+            evaluate_every=config["evaluate_every"],
+            available_fit_client_id=config["strategy_config"]["available_fit_client_id"],
+            available_eval_client_id=config["strategy_config"]["available_eval_client_id"],
+        )
 
     # start simulation
     fl.simulation.start_simulation(
