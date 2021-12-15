@@ -25,6 +25,7 @@ class Plotter():
         if log_path is None:
             raise Exception('Cannot find log file from given path.')
 
+        pd.options.display.max_rows = 4000
         self.data = pd.read_csv(log_path)
 
     def final_accuracy(self, num_total_clients):
@@ -44,7 +45,7 @@ class Plotter():
         if sort:
             data = data.sort_values(by=ACCURACY_KEY)
             data = data.reset_index(drop=True)
-        print(data)
+        # print(data)
 
         plt.bar(data.index if sort else data['cid'], data[ACCURACY_KEY], color=color)
 
@@ -150,8 +151,8 @@ class Plotter():
         percentile_90 = percentile_90.iloc[::plot_every_n_rounds]
 
         # Plot accuracy's 10/90th percentile.
-        plt.plot(percentile_10[NUM_ROUND_KEY], percentile_10[LOSS_KEY], linestyle=':')
-        plt.plot(percentile_90[NUM_ROUND_KEY], percentile_90[LOSS_KEY], linestyle=':')
+        #plt.plot(percentile_10[NUM_ROUND_KEY], percentile_10[LOSS_KEY], linestyle=':')
+        #splt.plot(percentile_90[NUM_ROUND_KEY], percentile_90[LOSS_KEY], linestyle=':')
 
         # Draw legend.
         plt.legend(['Mean', '10th percentile', '90th percentile'], loc='upper left')

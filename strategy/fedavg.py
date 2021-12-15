@@ -35,22 +35,12 @@ from flwr.common import (
 from flwr.common.logger import log
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
+from flwr.server.criterion import Criterion
 
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 from flwr.server.strategy.strategy import Strategy
 
-DEPRECATION_WARNING = """
-DEPRECATION WARNING: deprecated `eval_fn` return format
-
-    loss, accuracy
-
-move to
-
-    loss, {"accuracy": accuracy}
-
-instead. Note that compatibility with the deprecated return format will be
-removed in a future release.
-"""
+from strategy.criteria import AvailableClientIDCriterion
 
 DEPRECATION_WARNING_INITIAL_PARAMETERS = """
 DEPRECATION WARNING: deprecated initial parameter type
@@ -68,30 +58,19 @@ instead. Use
 to easily transform `Weights` to `Parameters`.
 """
 
-WARNING_MIN_AVAILABLE_CLIENTS_TOO_LOW = """
-Setting `min_available_clients` lower than `min_fit_clients` or
-`min_eval_clients` can cause the server to fail when there are too few clients
-connected to the server. `min_available_clients` must be set to a value larger
-than or equal to the values of `min_fit_clients` and `min_eval_clients`.
-"""
-
-
 class FedAvg(Strategy):
     """Configurable FedAvg strategy implementation."""
 
     # pylint: disable=too-many-arguments,too-many-instance-attributes
     def __init__(
         self,
-        fraction_fit: float = 0.1,
-        fraction_eval: float = 0.1,
-        min_fit_clients: int = 2,
-        min_eval_clients: int = 2,
-        min_available_clients: int = 2,
-        eval_fn: Optional[
-            Callable[[Weights], Optional[Tuple[float, Dict[str, Scalar]]]]
-        ] = None,
+        fit_clients: int = 1,
+        eval_clients: int = 1,
         on_fit_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
         on_evaluate_config_fn: Optional[Callable[[int], Dict[str, Scalar]]] = None,
+        evaluate_every: int = 1,
+        available_fit_client_id = [0],
+        available_eval_client_id = [0],
         accept_failures: bool = True,
         initial_parameters: Optional[Parameters] = None,
     ) -> None:
@@ -101,18 +80,10 @@ class FedAvg(Strategy):
 
         Parameters
         ----------
-        fraction_fit : float, optional
-            Fraction of clients used during training. Defaults to 0.1.
-        fraction_eval : float, optional
-            Fraction of clients used during validation. Defaults to 0.1.
-        min_fit_clients : int, optional
-            Minimum number of clients used during training. Defaults to 2.
-        min_eval_clients : int, optional
-            Minimum number of clients used during validation. Defaults to 2.
-        min_available_clients : int, optional
-            Minimum number of total clients in the system. Defaults to 2.
-        eval_fn : Callable[[Weights], Optional[Tuple[float, Dict[str, Scalar]]]]
-            Optional function used for validation. Defaults to None.
+        fit_clients : int, optional
+            Number of clients used during training. Defaults to 1.
+        eval_clients : int, optional
+            Number of clients used during validation. Defaults to 1.
         on_fit_config_fn : Callable[[int], Dict[str, Scalar]], optional
             Function used to configure training. Defaults to None.
         on_evaluate_config_fn : Callable[[int], Dict[str, Scalar]], optional
@@ -123,38 +94,20 @@ class FedAvg(Strategy):
             Initial global model parameters.
         """
         super().__init__()
-
-        if (
-            min_fit_clients > min_available_clients
-            or min_eval_clients > min_available_clients
-        ):
-            log(WARNING, WARNING_MIN_AVAILABLE_CLIENTS_TOO_LOW)
-
-        self.fraction_fit = fraction_fit
-        self.fraction_eval = fraction_eval
-        self.min_fit_clients = min_fit_clients
-        self.min_eval_clients = min_eval_clients
-        self.min_available_clients = min_available_clients
-        self.eval_fn = eval_fn
+        
+        self.fit_clients = fit_clients
+        self.eval_clients = eval_clients
         self.on_fit_config_fn = on_fit_config_fn
         self.on_evaluate_config_fn = on_evaluate_config_fn
+        self.evaluate_every = evaluate_every
+        self.available_fit_client_id = available_fit_client_id
+        self.available_eval_client_id = available_eval_client_id
         self.accept_failures = accept_failures
         self.initial_parameters = initial_parameters
 
     def __repr__(self) -> str:
         rep = f"FedAvg(accept_failures={self.accept_failures})"
         return rep
-
-    def num_fit_clients(self, num_available_clients: int) -> Tuple[int, int]:
-        """Return the sample size and the required number of available
-        clients."""
-        num_clients = int(num_available_clients * self.fraction_fit)
-        return max(num_clients, self.min_fit_clients), self.min_available_clients
-
-    def num_evaluation_clients(self, num_available_clients: int) -> Tuple[int, int]:
-        """Use a fraction of available clients for evaluation."""
-        num_clients = int(num_available_clients * self.fraction_eval)
-        return max(num_clients, self.min_eval_clients), self.min_available_clients
 
     def initialize_parameters(
         self, client_manager: ClientManager
@@ -167,25 +120,6 @@ class FedAvg(Strategy):
             initial_parameters = weights_to_parameters(weights=initial_parameters)
         return initial_parameters
 
-    def evaluate(
-        self, parameters: Parameters
-    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
-        """Evaluate model parameters using an evaluation function."""
-        if self.eval_fn is None:
-            # No evaluation function provided
-            return None
-        weights = parameters_to_weights(parameters)
-        eval_res = self.eval_fn(weights)
-        if eval_res is None:
-            return None
-        loss, other = eval_res
-        if isinstance(other, float):
-            print(DEPRECATION_WARNING)
-            metrics = {"accuracy": other}
-        else:
-            metrics = other
-        return loss, metrics
-
     def configure_fit(
         self, rnd: int, parameters: Parameters, client_manager: ClientManager
     ) -> List[Tuple[ClientProxy, FitIns]]:
@@ -197,11 +131,8 @@ class FedAvg(Strategy):
         fit_ins = FitIns(parameters, config)
 
         # Sample clients
-        sample_size, min_num_clients = self.num_fit_clients(
-            client_manager.num_available()
-        )
         clients = client_manager.sample(
-            num_clients=sample_size, min_num_clients=min_num_clients
+            num_clients=self.fit_clients, criterion=AvailableClientIDCriterion(self.available_fit_client_id)
         )
 
         # Return client/config pairs
@@ -211,13 +142,7 @@ class FedAvg(Strategy):
         self, rnd: int, parameters: Parameters, client_manager: ClientManager
     ) -> List[Tuple[ClientProxy, EvaluateIns]]:
         """Configure the next round of evaluation."""
-        # Do not configure federated evaluation if a centralized evaluation
-        # function is provided
-        if self.eval_fn is not None:
-            return []
-
-        # Only evaluate every 20 rounds
-        if rnd % 20 != 0:
+        if rnd % self.evaluate_every != 0:
             return []
         
         # Parameters and config
@@ -228,15 +153,9 @@ class FedAvg(Strategy):
         evaluate_ins = EvaluateIns(parameters, config)
 
         # Sample clients
-        if rnd >= 0:
-            sample_size, min_num_clients = self.num_evaluation_clients(
-                client_manager.num_available()
-            )
-            clients = client_manager.sample(
-                num_clients=sample_size, min_num_clients=min_num_clients
-            )
-        else:
-            clients = list(client_manager.all().values())
+        clients = client_manager.sample(
+            num_clients=self.eval_clients, criterion=AvailableClientIDCriterion(self.available_eval_client_id)
+        )
 
         # Return client/config pairs
         return [(client, evaluate_ins) for client in clients]
@@ -283,3 +202,11 @@ class FedAvg(Strategy):
             ]
         )
         return loss_aggregated, {}
+
+    def evaluate(
+        self, parameters: Parameters
+    ) -> Optional[Tuple[float, Dict[str, Scalar]]]:
+        """This function is used for centralized evaluation.
+        As we will not use centralized evaluation, 
+        this function will always return None."""
+        return None
